@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Shop Inventory</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #f4f6f9;
+            color: #333;
+            padding: 15px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .header {
+            background: #0066cc;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .header h2 {
+            font-size: 18px;
+        }
+        .btn {
+            background: #004080;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-danger {
+            background: #d9534f;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .form-container {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+            display: none;
+        }
+        .form-container.active {
+            display: block;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .search-box {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .phone-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            margin-bottom: 10px;
+            position: relative;
+            border-left: 5px solid #0066cc;
+        }
+        .phone-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        .badge-storage { background: #e1f0ff; color: #0056b3; }
+        .badge-network { background: #fff3cd; color: #856404; }
+        .price {
+            margin-top: 5px;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .cost-price {
+            color: #d9534f;
+            font-size: 13px;
+        }
+        .delete-btn-container {
+            text-align: right;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <h2 id="headerTitle">📱 Staff View</h2>
+        <button class="btn" id="toggleLoginBtn" onclick="handleLoginLogout()">Owner Login</button>
+    </div>
+
+    <!-- Owner Add Phone Form -->
+    <div class="form-container" id="ownerForm">
+        <h3>👑 Add New Phone (Owner Control)</h3><br>
+        <div class="form-group">
+            <input type="text" id="modelName" placeholder="Model Name (e.g. iPhone 12)">
+        </div>
+        <div class="form-group">
+            <input type="text" id="phoneSpecs" placeholder="RAM & Storage (e.g. 4GB / 64GB)">
+        </div>
+        <div class="form-group">
+            <select id="phoneNetwork">
+                <option value="4G">4G Network</option>
+                <option value="5G">5G Network</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <input type="number" id="sellingPrice" placeholder="Selling Price (₹)">
+        </div>
+        <div class="form-group">
+            <input type="number" id="costPrice" placeholder="Cost / Purchase Price (₹) - Owner Only">
+        </div>
+        <button class="btn" style="background: #28a745; width: 100%;" onclick="addPhone()">Add Stock to Inventory</button>
+    </div>
+
+    <!-- Search Box -->
+    <input type="text" class="search-box" id="searchInput" placeholder="Search Phone Model..." onkeyup="searchPhones()">
+
+    <!-- Phone List Container -->
+    <div id="phoneList"></div>
+</div>
+
+<script>
+    let isOwner = false;
+    const correctPassword = "max2830";
+
+    // Initial default phones if localStorage is empty
+    let phones = JSON.parse(localStorage.getItem('phoneInventory')) || [
+        { id: 1, name: "iPhone 11", specs: "4GB / 64GB", network: "4G", selling: "22,000", cost: "17,000" },
+        { id: 2, name: "Samsung Galaxy S21", specs: "8GB / 128GB", network: "5G", selling: "25,000", cost: "20,000" },
+        { id: 3, name: "OnePlus Nord CE 2", specs: "6GB / 128GB", network: "5G", selling: "14,000", cost: "11,000" }
+    ];
+
+    function saveAndRender() {
+        localStorage.setItem('phoneInventory', JSON.stringify(phones));
+        renderPhones();
+    }
+
+    function renderPhones(filteredPhones = phones) {
+        const listDiv = document.getElementById('phoneList');
+        listDiv.innerHTML = '';
+
+        if (filteredPhones.length === 0) {
+            listDiv.innerHTML = '<p style="text-align:center; color:#777;">No phones found.</p>';
+            return;
+        }
+
+        filteredPhones.forEach(phone => {
+            let card = document.createElement('div');
+            card.className = 'phone-card';
+            
+            let costHtml = isOwner ? `<div class="cost-price">Cost Price: ₹${phone.cost} (Owner Only)</div>` : '';
+            let deleteHtml = isOwner ? `<div class="delete-btn-container"><button class="btn-danger" onclick="deletePhone(${phone.id})">Delete</button></div>` : '';
+
+            card.innerHTML = `
+                <div class="phone-title">${phone.name}</div>
+                <div>
+                    <span class="badge badge-storage">💾 ${phone.specs}</span>
+                    <span class="badge badge-network">📶 ${phone.network}</span>
+                </div>
+                <div class="price">Selling Price: ₹${phone.selling}</div>
+                ${costHtml}
+                ${deleteHtml}
+            `;
+            listDiv.appendChild(card);
+        });
+    }
+
+    function handleLoginLogout() {
+        if (!isOwner) {
+            // Ask for password
+            let enteredPass = prompt("Enter Owner Password:");
+            if (enteredPass === correctPassword) {
+                isOwner = true;
+                updateViewMode();
+                alert("Login Successful! Welcome Owner.");
+            } else if (enteredPass !== null) {
+                alert("Incorrect Password! Access Denied.");
+            }
+        } else {
+            // Logout
+            isOwner = false;
+            updateViewMode();
+            alert("Logged out successfully to Staff View.");
+        }
+    }
+
+    function updateViewMode() {
+        const headerTitle = document.getElementById('headerTitle');
+        const toggleLoginBtn = document.getElementById('toggleLoginBtn');
+        const ownerForm = document.getElementById('ownerForm');
+
+        if (isOwner) {
+            headerTitle.innerText = "👑 Owner Full Control";
+            toggleLoginBtn.innerText = "Logout";
+            ownerForm.classList.add('active');
+        } else {
+            headerTitle.innerText = "📱 Staff View";
+            toggleLoginBtn.innerText = "Owner Login";
+            ownerForm.classList.remove('active');
+        }
+        renderPhones();
+    }
+
+    function addPhone() {
+        const name = document.getElementById('modelName').value.trim();
+        const specs = document.getElementById('phoneSpecs').value.trim();
+        const network = document.getElementById('phoneNetwork').value;
+        const selling = document.getElementById('sellingPrice').value.trim();
+        const cost = document.getElementById('costPrice').value.trim();
+
+        if (!name || !selling) {
+            alert("Please enter Model Name and Selling Price!");
+            return;
+        }
+
+        const newPhone = {
+            id: Date.now(),
+            name: name,
+            specs: specs || "N/A",
+            network: network,
+            selling: selling,
+            cost: cost || "0"
+        };
+
+        phones.unshift(newPhone);
+        saveAndRender();
+
+        // Clear form inputs
+        document.getElementById('modelName').value = '';
+        document.getElementById('phoneSpecs').value = '';
+        document.getElementById('sellingPrice').value = '';
+        document.getElementById('costPrice').value = '';
+    }
+
+    function deletePhone(id) {
+        if (confirm("Are you sure you want to delete this phone?")) {
+            phones = phones.filter(phone => phone.id !== id);
+            saveAndRender();
+        }
+    }
+
+    function searchPhones() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const filtered = phones.filter(phone => phone.name.toLowerCase().includes(query));
+        renderPhones(filtered);
+    }
+
+    // Initial load
+    renderPhones();
+</script>
+
+</body>
+</html>
